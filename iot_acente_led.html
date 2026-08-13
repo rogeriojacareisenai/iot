@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Arduino UNO — Ligando um LED</title>
+
+<style>
+:root {
+    --bg: #0b1120;
+    --panel: #111827;
+    --panel2: #172033;
+    --border: #293548;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --blue: #3b82f6;
+    --cyan: #22d3ee;
+    --green: #22c55e;
+    --yellow: #facc15;
+    --red: #ef4444;
+    --purple: #a78bfa;
+    --wire-red: #ef4444;
+    --wire-black: #111827;
+    --wire-blue: #2563eb;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(59,130,246,.12), transparent 30%),
+        radial-gradient(circle at 80% 20%, rgba(34,211,238,.08), transparent 30%),
+        var(--bg);
+    color: var(--text);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont,
+                 "Segoe UI", sans-serif;
+}
+
+button {
+    font: inherit;
+}
+
+header {
+    padding: 22px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,17,32,.88);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.header-inner {
+    max-width: 1500px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg,#2563eb,#06b6d4);
+    box-shadow: 0 0 30px rgba(37,99,235,.3);
+    font-size: 25px;
+}
+
+h1 {
+    font-size: 21px;
+    margin: 0;
+}
+
+.subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 3px;
+}
+
+.main {
+    max-width: 1500px;
+    margin: auto;
+    padding: 25px;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: minmax(600px, 1.5fr) minmax(350px, .8fr);
+    gap: 20px;
+}
+
+.panel {
+    background: rgba(17,24,39,.92);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.22);
+}
+
+.panel-title {
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.panel-title strong {
+    font-size: 14px;
+}
+
+.badge {
+    background: rgba(59,130,246,.13);
+    color: #93c5fd;
+    border: 1px solid rgba(59,130,246,.3);
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+}
+
+/* =========================
+   SIMULADOR
+========================= */
+
+.simulator {
+    min-height: 650px;
+    position: relative;
+    background:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+        #0d1524;
+    background-size: 24px 24px;
+    overflow: hidden;
+}
+
+.stage {
+    position: relative;
+    width: 100%;
+    height: 650px;
+}
+
+/* Arduino */
+
+.arduino {
+    position: absolute;
+    left: 6%;
+    top: 100px;
+    width: 310px;
+    height: 330px;
+    border-radius: 13px;
+    background: linear-gradient(145deg,#087b73,#055f59);
+    border: 2px solid #0a958b;
+    box-shadow: 0 25px 55px rgba(0,0,0,.45);
+    transition: .4s;
+    z-index: 4;
+}
+
+.arduino.highlight {
+    box-shadow:
+        0 0 0 3px rgba(34,211,238,.3),
+        0 0 45px rgba(34,211,238,.45),
+        0 25px 55px rgba(0,0,0,.45);
+}
+
+.arduino .usb {
+    position: absolute;
+    left: -42px;
+    top: 52px;
+    width: 45px;
+    height: 65px;
+    background: linear-gradient(#cbd5e1,#64748b);
+    border-radius: 5px 0 0 5px;
+    border: 2px solid #475569;
+}
+
+.arduino .usb::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 12px;
+    width: 25px;
+    height: 38px;
+    background: #1e293b;
+    border-radius: 3px;
+}
+
+.arduino-logo {
+    position: absolute;
+    left: 30px;
+    top: 28px;
+    color: rgba(255,255,255,.9);
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.board-label {
+    position: absolute;
+    right: 25px;
+    top: 30px;
+    color: rgba(255,255,255,.75);
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.chip {
+    position: absolute;
+    left: 93px;
+    top: 118px;
+    width: 120px;
+    height: 78px;
+    background: #111827;
+    border: 1px solid #334155;
+    box-shadow: inset 0 0 15px rgba(0,0,0,.7);
+    display: grid;
+    place-items: center;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.chip::before,
+.chip::after {
+    content: "";
+    position: absolute;
+    width: 145px;
+    height: 6px;
+    left: -13px;
+    background: repeating-linear-gradient(
+        90deg,
+        #cbd5e1 0 4px,
+        transparent 4px 12px
+    );
+    opacity: .55;
+}
+
+.chip::before { top: -9px; }
+.chip::after { bottom: -9px; }
+
+.power-led {
+    position: absolute;
+    right: 32px;
+    top: 91px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 9px #ef4444;
+}
+
+.pin-bank {
+    position: absolute;
+    display: flex;
+    gap: 4px;
+}
+
+.pin-bank.top {
+    right: 20px;
+    top: -10px;
+}
+
+.pin-bank.bottom {
+    left: 23px;
+    bottom: -10px;
+}
+
+.pin {
+    width: 15px;
+    height: 22px;
+    background: #d1d5db;
+    border: 1px solid #64748b;
+    border-radius: 2px;
+    position: relative;
+}
+
+.pin span {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #e2e8f0;
+    font-size: 8px;
+    white-space: nowrap;
+}
+
+.bottom .pin span {
+    top: 24px;
+}
+
+.pin.active {
+    background: #facc15;
+    box-shadow: 0 0 14px #facc15;
+}
+
+/* Breadboard */
+
+.breadboard {
+    position: absolute;
+    right: 7%;
+    top: 110px;
+    width: 390px;
+    height: 390px;
+    background:
+        linear-gradient(90deg,#e5e7eb,#cbd5e1);
+    border-radius: 13px;
+    border: 3px solid #94a3b8;
+    box-shadow: 0 25px 55px rgba(0,0,0,.5);
+    z-index: 3;
+}
+
+.breadboard::before {
+    content: "+  POWER  -";
+    position: absolute;
+    left: 16px;
+    top: 12px;
+    color: #64748b;
+    font-weight: 800;
+    font-size: 11px;
+}
+
+.rail {
+    position: absolute;
+    left: 15px;
+    right: 15px;
+    height: 4px;
+    background: #ef4444;
+    opacity: .65;
+}
+
+.rail.one { top: 40px; }
+.rail.two {
+    top: 51px;
+    background: #2563eb;
+}
+
+.rail.bottom {
+    bottom: 40px;
+}
+
+.rail.bottom.two {
+    bottom: 51px;
+}
+
+.holes {
+    position: absolute;
+    left: 33px;
+    right: 33px;
+    top: 83px;
+    bottom: 80px;
+    display: grid;
+    grid-template-columns: repeat(30, 1fr);
+    grid-auto-rows: 18px;
+    gap: 1px;
+}
+
+.hole {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #64748b;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,.6);
+    margin: auto;
+    transition: .25s;
+}
+
+.hole.connected {
+    background: #22c55e;
+    box-shadow: 0 0 8px rgba(34,197,94,.8);
+}
+
+.hole.target {
+    background: #facc15;
+    box-shadow: 0 0 12px #facc15;
+    animation: pulseHole 1s infinite;
+}
+
+@keyframes pulseHole {
+    50% { transform: scale(1.6); }
+}
+
+.center-gap {
+    position: absolute;
+    top: 76px;
+    bottom: 73px;
+    left: 50%;
+    width: 13px;
+    transform: translateX(-50%);
+    background: #94a3b8;
+}
+
+/* Components */
+
+.resistor {
+    position: absolute;
+    z-index: 8;
+    width: 110px;
+    height: 24px;
+    right: 145px;
+    top: 270px;
+    transform: rotate(0deg);
+    transition: .4s;
+}
+
+.resistor-body {
+    position: absolute;
+    left: 15px;
+    top: 2px;
+    width: 80px;
+    height: 20px;
+    border-radius: 6px;
+    background: #e8d0a3;
+    border: 2px solid #9a8053;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.band {
+    width: 5px;
+    height: 20px;
+}
+
+.band:nth-child(1) { background:#8b4513; }
+.band:nth-child(2) { background:#111827; }
+.band:nth-child(3) { background:#ef4444; }
+.band:nth-child(4) { background:#d4af37; }
+
+.resistor::before,
+.resistor::after {
+    content: "";
+    position: absolute;
+    top: 11px;
+    width: 18px;
+    height: 2px;
+    background: #94a3b8;
+}
+
+.resistor::before { left: -2px; }
+.resistor::after { right: -2px; }
+
+.resistor.highlight {
+    filter: drop-shadow(0 0 12px #facc15);
+    transform: scale(1.08);
+}
+
+/* LED */
+
+.led {
+    position: absolute;
+    z-index: 8;
+    right: 315px;
+    top: 265px;
+    width: 45px;
+    height: 100px;
+    transition: .4s;
+}
+
+.led-bulb {
+    position: absolute;
+    top: 0;
+    left: 4px;
+    width: 38px;
+    height: 48px;
+    border-radius: 50% 50% 43% 43%;
+    background: #7f1d1d;
+    border: 2px solid #991b1b;
+    transition: .2s;
+}
+
+.led-bulb::after {
+    content: "";
+    position: absolute;
+    left: 17px;
+    top: 48px;
+    width: 4px;
+    height: 38px;
+    background: #cbd5e1;
+}
+
+.led-pin {
+    position: absolute;
+    top: 85px;
+    width: 4px;
+    height: 15px;
+    background: #cbd5e1;
+}
+
+.led-pin.a { left: 10px; }
+.led-pin.k { right: 10px; }
+
+.led.on .led-bulb {
+    background: #ff3030;
+    border-color: #ff7777;
+    box-shadow:
+        0 0 15px #ff3030,
+        0 0 35px #ff3030,
+        0 0 70px rgba(255,48,48,.7);
+}
+
+.led.highlight {
+    filter: drop-shadow(0 0 12px #facc15);
+    transform: scale(1.08);
+}
+
+.led-label {
+    position: absolute;
+    top: 106px;
+    left: -18px;
+    color: #334155;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+/* SVG wires */
+
+.wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 7;
+    pointer-events: none;
+}
+
+.wire {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    transition: opacity .2s;
+}
+
+.wire.visible {
+    opacity: 1;
+    animation: drawWire 1s ease forwards;
+}
+
+@keyframes drawWire {
+    to { stroke-dashoffset: 0; }
+}
+
+.wire-red { stroke: #ef4444; }
+.wire-black { stroke: #111827; }
+.wire-blue { stroke: #2563eb; }
+
+.step-marker {
+    position: absolute;
+    z-index: 12;
+    min-width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #2563eb;
+    color: white;
+    font-weight: 900;
+    border: 3px solid #bfdbfe;
+    box-shadow: 0 0 20px rgba(37,99,235,.6);
+    animation: markerPulse 1.5s infinite;
+}
+
+@keyframes markerPulse {
+    50% { transform: scale(1.15); }
+}
+
+.marker1 { left: 26%; top: 75px; }
+.marker2 { right: 19%; top: 70px; }
+.marker3 { right: 25%; top: 230px; }
+.marker4 { right: 6%; top: 340px; }
+
+.tooltip {
+    position: absolute;
+    z-index: 15;
+    max-width: 250px;
+    padding: 12px 15px;
+    background: rgba(15,23,42,.96);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    box-shadow: 0 15px 35px rgba(0,0,0,.35);
+    display: none;
+}
+
+.tooltip.show {
+    display: block;
+    animation: fadeIn .3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity:0; transform:translateY(5px); }
+    to { opacity:1; transform:none; }
+}
+
+/* =========================
+   CONTROLES
+========================= */
+
+.controls {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    border: 1px solid #334155;
+    background: #172033;
+    color: var(--text);
+    padding: 9px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 12px;
+    transition: .2s;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    border-color: #64748b;
+}
+
+.btn.primary {
+    background: linear-gradient(135deg,#2563eb,#0891b2);
+    border-color: #38bdf8;
+}
+
+.btn.success {
+    background: linear-gradient(135deg,#15803d,#16a34a);
+    border-color: #4ade80;
+}
+
+.btn.danger {
+    background: rgba(239,68,68,.12);
+    border-color: rgba(239,68,68,.4);
+    color: #fca5a5;
+}
+
+.btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+/* =========================
+   LADO DIREITO
+========================= */
+
+.right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.lesson {
+    padding: 20px;
+}
+
+.progress {
+    height: 7px;
+    background: #1e293b;
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 18px;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg,#2563eb,#22d3ee);
+    transition: .4s;
+}
+
+.step-title {
+    font-size: 20px;
+    margin: 0 0 9px;
+}
+
+.step-text {
+    color: #cbd5e1;
+    line-height: 1.65;
+    font-size: 14px;
+}
+
+.tip {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(250,204,21,.08);
+    border: 1px solid rgba(250,204,21,.22);
+    border-radius: 10px;
+    color: #fde68a;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.components {
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.component {
+    background: #172033;
+    border: 1px solid #293548;
+    padding: 10px;
+    border-radius: 9px;
+    font-size: 12px;
+}
+
+.component b {
+    display: block;
+    color: #f8fafc;
+    margin-bottom: 3px;
+}
+
+.component span {
+    color: #94a3b8;
+}
+
+/* Código */
+
+.code-panel {
+    min-height: 360px;
+}
+
+.code {
+    margin: 0;
+    padding: 18px;
+    background: #080d17;
+    color: #cbd5e1;
+    font-family: "Fira Code", Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-x: auto;
+    counter-reset: line;
+}
+
+.code-line {
+    display: block;
+    padding-left: 10px;
+    border-radius: 4px;
+    transition: .25s;
+}
+
+.code-line.active {
+    background: rgba(59,130,246,.22);
+    box-shadow: inset 3px 0 #3b82f6;
+}
+
+.kw { color:#c084fc; }
+.fn { color:#67e8f9; }
+.num { color:#fbbf24; }
+.comment { color:#64748b; }
+.const { color:#4ade80; }
+
+.console {
+    padding: 13px 16px;
+    background: #050911;
+    border-top: 1px solid #1e293b;
+    min-height: 100px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    color: #86efac;
+    overflow-y: auto;
+    max-height: 150px;
+}
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #64748b;
+}
+
+.status.running .status-dot {
+    background: #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+}
+
+@media (max-width: 1050px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .simulator {
+        min-height: 580px;
+    }
+
+    .stage {
+        height: 580px;
+        transform-origin: top left;
+    }
+
+    .breadboard {
+        right: 4%;
+        transform: scale(.82);
+        transform-origin: top right;
+    }
+
+    .arduino {
+        left: 4%;
+        transform: scale(.82);
+        transform-origin: top left;
+    }
+}
+
+@media (max-width: 650px) {
+    header {
+        padding: 15px;
+    }
+
+    .main {
+        padding: 12px;
+    }
+
+    .simulator {
+        overflow-x: auto;
+    }
+
+    .stage {
+        width: 850px;
+    }
+
+    .right {
+        gap: 12px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="header-inner">
+        <div class="brand">
+            <div class="logo">⚡</div>
+            <div>
+                <h1>Arduino UNO — LED na Protoboard</h1>
+                <div class="subtitle">
+                    Laboratório virtual interativo
+                </div>
+            </div>
+        </div>
+
+        <div class="status" id="status">
+            <span class="status-dot"></span>
+            Simulação parada
+        </div>
+    </div>
+</header>
+
+<main class="main">
+
+<div class="layout">
+
+    <!-- =====================================
+         SIMULADOR
+    ====================================== -->
+
+    <section class="panel">
+
+        <div class="panel-title">
+            <strong>🔬 Área de montagem</strong>
+            <span class="badge">SIMULAÇÃO</span>
+        </div>
+
+        <div class="simulator">
+
+            <div class="stage" id="stage">
+
+                <!-- Arduino -->
+                <div class="arduino" id="arduino">
+
+                    <div class="usb"></div>
+
+                    <div class="arduino-logo">
+                        ∞ Arduino
+                    </div>
+
+                    <div class="board-label">
+                        UNO R3
+                    </div>
+
+                    <div class="power-led"></div>
+
+                    <div class="chip">
+                        ATmega328P
+                    </div>
+
+                    <div class="pin-bank top">
+
+                        <div class="pin"><span>0</span></div>
+                        <div class="pin"><span>1</span></div>
+                        <div class="pin"><span>2</span></div>
+                        <div class="pin"><span>3</span></div>
+                        <div class="pin"><span>4</span></div>
+                        <div class="pin"><span>5</span></div>
+                        <div class="pin"><span>6</span></div>
+                        <div class="pin"><span>7</span></div>
+                        <div class="pin active" id="pin8"><span>8</span></div>
+                        <div class="pin"><span>9</span></div>
+                        <div class="pin"><span>10</span></div>
+                        <div class="pin"><span>11</span></div>
+                        <div class="pin"><span>12</span></div>
+                        <div class="pin"><span>13</span></div>
+
+                    </div>
+
+                    <div class="pin-bank bottom">
+
+                        <div class="pin"><span>IOREF</span></div>
+                        <div class="pin"><span>RESET</span></div>
+                        <div class="pin"><span>3V3</span></div>
+                        <div class="pin"><span>5V</span></div>
+                        <div class="pin"><span>GND</span></div>
+                        <div class="pin"><span>GND</span></div>
+                        <div class="pin"><span>VIN</span></div>
+
+                    </div>
+
+                </div>
+
+                <!-- Protoboard -->
+                <div class="breadboard" id="breadboard">
+
+                    <div class="rail one"></div>
+                    <div class="rail two"></div>
+                    <div class="rail bottom"></div>
+                    <div class="rail bottom two"></div>
+
+                    <div class="center-gap"></div>
+
+                    <div class="holes" id="holes"></div>
+
+                </div>
+
+                <!-- Resistor -->
+                <div class="resistor" id="resistor">
+
+                    <div class="resistor-body">
+                        <span class="band"></span>
+                        <span class="band"></span>
+                        <span class="band"></span>
+                        <span class="band"></span>
+                    </div>
+
+                </div>
+
+                <!-- LED -->
+                <div class="led" id="led">
+
+                    <div class="led-bulb"></div>
+
+                    <div class="led-pin a"></div>
+                    <div class="led-pin k"></div>
+
+                    <div class="led-label">
+                        LED<br>
+                        A → K
+                    </div>
+
+                </div>
+
+                <!-- Fios -->
+                <svg class="wires" viewBox="0 0 1000 650"
+                     preserveAspectRatio="none">
+
+                    <path id="wire1"
+                          class="wire wire-blue"
+                          d="M 375 91
+                             C 500 80, 540 170, 665 270" />
+
+                    <path id="wire2"
+                          class="wire wire-red"
+                          d="M 665 270
+                             C 710 270, 735 270, 790 270" />
+
+                    <path id="wire3"
+                          class="wire wire-black"
+                          d="M 790 350
+                             C 840 390, 850 480, 820 520
+                             C 770 560, 560 540, 420 430" />
+
+                </svg>
+
+                <!-- Marcadores -->
+                <div class="step-marker marker1" id="marker1">1</div>
+                <div class="step-marker marker2" id="marker2">2</div>
+                <div class="step-marker marker3" id="marker3">3</div>
+                <div class="step-marker marker4" id="marker4">4</div>
+
+                <div class="tooltip" id="tooltip"></div>
+
+            </div>
+
+        </div>
+
+        <div class="controls">
+
+            <button class="btn" id="prevBtn">
+                ← Anterior
+            </button>
+
+            <button class="btn primary" id="nextBtn">
+                Próximo →
+            </button>
+
+            <button class="btn success" id="runBtn">
+                ▶ Executar simulação
+            </button>
+
+            <button class="btn danger" id="resetBtn">
+                ↺ Reiniciar
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================
+         LADO DIREITO
+    ====================================== -->
+
+    <div class="right">
+
+        <!-- Aula -->
+        <section class="panel lesson">
+
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+
+            <h2 class="step-title" id="stepTitle">
+                Preparação
+            </h2>
+
+            <div class="step-text" id="stepText">
+                Vamos montar um circuito simples com Arduino UNO,
+                LED e resistor de 220 Ω.
+            </div>
+
+            <div class="tip" id="tip">
+                💡 Clique em <strong>Próximo</strong> para começar.
+            </div>
+
+            <div class="components">
+
+                <div class="component">
+                    <b>🔵 Arduino UNO</b>
+                    <span>Controlador</span>
+                </div>
+
+                <div class="component">
+                    <b>🔴 LED</b>
+                    <span>Emissor de luz</span>
+                </div>
+
+                <div class="component">
+                    <b>🟫 Resistor</b>
+                    <span>220 Ω</span>
+                </div>
+
+                <div class="component">
+                    <b>⚪ Protoboard</b>
+                    <span>Montagem</span>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- Código -->
+        <section class="panel code-panel">
+
+            <div class="panel-title">
+
+                <strong>💻 Código Arduino</strong>
+
+                <span class="badge">
+                    Arduino C++
+                </span>
+
+            </div>
+
+            <pre class="code" id="code">
+
+<span class="code-line" data-line="1"><span class="kw">const int</span> led = <span class="num">8</span>;</span>
+<span class="code-line" data-line="2"></span>
+<span class="code-line" data-line="3"><span class="kw">void</span> <span class="fn">setup</span>() {</span>
+<span class="code-line" data-line="4">  <span class="fn">pinMode</span>(led, <span class="const">OUTPUT</span>);</span>
+<span class="code-line" data-line="5">}</span>
+<span class="code-line" data-line="6"></span>
+<span class="code-line" data-line="7"><span class="kw">void</span> <span class="fn">loop</span>() {</span>
+<span class="code-line" data-line="8">  <span class="fn">digitalWrite</span>(led, <span class="const">HIGH</span>);</span>
+<span class="code-line" data-line="9">  <span class="fn">delay</span>(<span class="num">1000</span>);</span>
+<span class="code-line" data-line="10">  <span class="fn">digitalWrite</span>(led, <span class="const">LOW</span>);</span>
+<span class="code-line" data-line="11">  <span class="fn">delay</span>(<span class="num">1000</span>);</span>
+<span class="code-line" data-line="12">}</span>
+
+            </pre>
+
+            <div class="console" id="console">
+                > Sistema pronto.<br>
+                > Aguardando execução...
+            </div>
+
+        </section>
+
+    </div>
+
+</div>
+
+</main>
+
+
+<script>
+/*
+=========================================================
+ ARDUINO LED LAB
+ Simulação didática — HTML + CSS + JavaScript
+=========================================================
+*/
+
+const steps = [
+
+    {
+        title: "Preparação",
+        text:
+            "Vamos montar um circuito para fazer um LED externo piscar. " +
+            "Usaremos o pino digital 8 do Arduino, um resistor de 220 Ω, " +
+            "um LED e o GND.",
+        tip:
+            "💡 O resistor limita a corrente que passa pelo LED e ajuda a protegê-lo.",
+        lines: [],
+        highlight: null,
+        wires: []
+    },
+
+    {
+        title: "Passo 1 — Identifique o pino 8",
+        text:
+            "Primeiro vamos utilizar o pino digital 8 do Arduino UNO como saída. " +
+            "É dele que sairá o sinal elétrico que controlará o LED.",
+        tip:
+            "⚡ No código, pinMode(8, OUTPUT) configura o pino 8 como uma saída digital.",
+        lines: [1, 3, 4],
+        highlight: "arduino",
+        wires: []
+    },
+
+    {
+        title: "Passo 2 — Coloque o resistor",
+        text:
+            "O resistor de 220 Ω deve ficar em série com o LED. " +
+            "Neste circuito, o sinal sai do pino 8, passa pelo resistor e chega ao LED.",
+        tip:
+            "🟫 Não ligue o LED diretamente ao pino do Arduino. O resistor é importante para limitar a corrente.",
+        lines: [1, 4],
+        highlight: "resistor",
+        wires: ["wire1"]
+    },
+
+    {
+        title: "Passo 3 — Posicione o LED",
+        text:
+            "Agora coloque o LED na protoboard. Observe que ele possui dois terminais: " +
+            "ânodo (A) e cátodo (K). O ânodo ficará conectado ao resistor.",
+        tip:
+            "🔴 A → resistor. K → GND. A polaridade do LED é importante.",
+        lines: [1, 4],
+        highlight: "led",
+        wires: ["wire1", "wire2"]
+    },
+
+    {
+        title: "Passo 4 — Ligue o GND",
+        text:
+            "O cátodo do LED precisa retornar ao GND do Arduino. " +
+            "Assim fechamos o circuito elétrico.",
+        tip:
+            "⚫ O caminho completo fica: pino 8 → resistor → LED → GND.",
+        lines: [1, 4],
+        highlight: "arduino",
+        wires: ["wire1", "wire2", "wire3"]
+    },
+
+    {
+        title: "Passo 5 — Entenda o código",
+        text:
+            "A função setup() é executada uma vez. Nela configuramos o pino 8 " +
+            "como OUTPUT, ou seja, uma saída capaz de colocar o pino em HIGH ou LOW.",
+        tip:
+            "💻 HIGH liga o sinal do pino. LOW desliga o sinal.",
+        lines: [3, 4, 5],
+        highlight: "arduino",
+        wires: ["wire1", "wire2", "wire3"]
+    },
+
+    {
+        title: "Passo 6 — Faça o LED piscar",
+        text:
+            "Dentro de loop(), o Arduino coloca o pino em HIGH, espera 1 segundo, " +
+            "coloca em LOW e espera mais 1 segundo. Depois o loop começa novamente.",
+        tip:
+            "🔁 O resultado é: LED ligado por 1 segundo → desligado por 1 segundo → repetir.",
+        lines: [7, 8, 9, 10, 11, 12],
+        highlight: "led",
+        wires: ["wire1", "wire2", "wire3"]
+    },
+
+    {
+        title: "🎉 Circuito concluído!",
+        text:
+            "A montagem está completa. Clique em 'Executar simulação' para ver " +
+            "o LED piscando e acompanhar o que aconteceria durante a execução.",
+        tip:
+            "🚀 Você acabou de montar seu primeiro circuito Arduino com LED externo.",
+        lines: [7, 8, 9, 10, 11],
+        highlight: null,
+        wires: ["wire1", "wire2", "wire3"]
+    }
+
+];
+
+let currentStep = 0;
+let simulationRunning = false;
+let blinkTimer = null;
+let consoleTimer = null;
+
+
+/* ==========================================
+   CRIA OS FUROS DA PROTOBOARD
+========================================== */
+
+const holes = document.getElementById("holes");
+
+for (let i = 0; i < 150; i++) {
+
+    const hole = document.createElement("div");
+
+    hole.className = "hole";
+
+    hole.dataset.index = i;
+
+    holes.appendChild(hole);
+}
+
+
+/* ==========================================
+   ELEMENTOS
+========================================== */
+
+const stepTitle = document.getElementById("stepTitle");
+const stepText = document.getElementById("stepText");
+const tip = document.getElementById("tip");
+const progressBar = document.getElementById("progressBar");
+
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const runBtn = document.getElementById("runBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+const arduino = document.getElementById("arduino");
+const resistor = document.getElementById("resistor");
+const led = document.getElementById("led");
+
+const status = document.getElementById("status");
+const consoleBox = document.getElementById("console");
+
+
+/* ==========================================
+   ATUALIZA A AULA
+========================================== */
+
+function renderStep() {
+
+    const step = steps[currentStep];
+
+    stepTitle.textContent = step.title;
+    stepText.textContent = step.text;
+    tip.innerHTML = step.tip;
+
+    const percent =
+        (currentStep / (steps.length - 1)) * 100;
+
+    progressBar.style.width = percent + "%";
+
+    prevBtn.disabled = currentStep === 0;
+    nextBtn.disabled = currentStep === steps.length - 1;
+
+    // Remove highlights
+    arduino.classList.remove("highlight");
+    resistor.classList.remove("highlight");
+    led.classList.remove("highlight");
+
+    // Adiciona highlight
+    if (step.highlight === "arduino") {
+        arduino.classList.add("highlight");
+    }
+
+    if (step.highlight === "resistor") {
+        resistor.classList.add("highlight");
+    }
+
+    if (step.highlight === "led") {
+        led.classList.add("highlight");
+    }
+
+    // Linhas do código
+    document.querySelectorAll(".code-line")
+        .forEach(line => {
+
+            const lineNumber =
+                Number(line.dataset.line);
+
+            line.classList.toggle(
+                "active",
+                step.lines.includes(lineNumber)
+            );
+        });
+
+    // Fios
+    document.querySelectorAll(".wire")
+        .forEach(wire => {
+
+            wire.classList.remove("visible");
+
+            if (step.wires.includes(wire.id)) {
+
+                // pequeno atraso para permitir
+                // a animação de desenho
+                setTimeout(() => {
+                    wire.classList.add("visible");
+                }, 100);
+            }
+        });
+
+    // Furos
+    document.querySelectorAll(".hole")
+        .forEach(h => {
+            h.classList.remove("target");
+            h.classList.remove("connected");
+        });
+
+    if (currentStep >= 2) {
+
+        document.querySelectorAll(".hole")
+            .forEach((hole, i) => {
+
+                if (i === 42 ||
+                    i === 43 ||
+                    i === 102 ||
+                    i === 103) {
+
+                    hole.classList.add("connected");
+                }
+            });
+    }
+
+    if (currentStep === 2) {
+
+        document.querySelectorAll(".hole")
+            .forEach((hole, i) => {
+
+                if (i === 42 || i === 43) {
+                    hole.classList.add("target");
+                }
+            });
+    }
+
+    if (currentStep === 3) {
+
+        document.querySelectorAll(".hole")
+            .forEach((hole, i) => {
+
+                if (i === 42 ||
+                    i === 43 ||
+                    i === 72 ||
+                    i === 73) {
+
+                    hole.classList.add("target");
+                }
+            });
+    }
+
+    if (currentStep >= 4) {
+
+        document.querySelectorAll(".hole")
+            .forEach((hole, i) => {
+
+                if (i === 102 ||
+                    i === 103) {
+
+                    hole.classList.add("connected");
+                }
+            });
+    }
+
+}
+
+
+/* ==========================================
+   NAVEGAÇÃO
+========================================== */
+
+nextBtn.addEventListener("click", () => {
+
+    if (currentStep < steps.length - 1) {
+
+        currentStep++;
+
+        renderStep();
+
+        writeConsole(
+            `> Etapa ${currentStep}: ${steps[currentStep].title}`
+        );
+    }
+});
+
+
+prevBtn.addEventListener("click", () => {
+
+    if (currentStep > 0) {
+
+        currentStep--;
+
+        renderStep();
+
+        writeConsole(
+            `> Voltando para etapa ${currentStep}`
+        );
+    }
+});
+
+
+/* ==========================================
+   CONSOLE
+========================================== */
+
+function writeConsole(message) {
+
+    const line =
+        document.createElement("div");
+
+    line.textContent = message;
+
+    consoleBox.appendChild(line);
+
+    consoleBox.scrollTop =
+        consoleBox.scrollHeight;
+}
+
+
+/* ==========================================
+   SIMULAÇÃO
+========================================== */
+
+function runSimulation() {
+
+    if (simulationRunning) {
+
+        stopSimulation();
+
+        return;
+    }
+
+    simulationRunning = true;
+
+    runBtn.textContent = "■ Parar simulação";
+
+    runBtn.classList.remove("success");
+    runBtn.classList.add("danger");
+
+    status.classList.add("running");
+
+    status.innerHTML =
+        '<span class="status-dot"></span> Arduino executando';
+
+    writeConsole("> Compilando sketch...");
+
+    setTimeout(() => {
+
+        writeConsole("> Compilação concluída.");
+
+    }, 700);
+
+    setTimeout(() => {
+
+        writeConsole("> Upload para Arduino UNO...");
+
+    }, 1300);
+
+    setTimeout(() => {
+
+        writeConsole("> Upload concluído.");
+        writeConsole("> setup() executado.");
+        writeConsole("> pinMode(8, OUTPUT)");
+
+    }, 1900);
+
+    setTimeout(() => {
+
+        startBlink();
+
+    }, 2500);
+}
+
+
+function startBlink() {
+
+    if (!simulationRunning) {
+        return;
+    }
+
+    led.classList.add("on");
+
+    writeConsole(
+        "> digitalWrite(8, HIGH) — LED LIGADO"
+    );
+
+    highlightCodeLine(8);
+
+    blinkTimer = setTimeout(() => {
+
+        led.classList.remove("on");
+
+        writeConsole(
+            "> digitalWrite(8, LOW) — LED DESLIGADO"
+        );
+
+        highlightCodeLine(10);
+
+        blinkTimer = setTimeout(
+            startBlink,
+            1000
+        );
+
+    }, 1000);
+}
+
+
+function stopSimulation() {
+
+    simulationRunning = false;
+
+    clearTimeout(blinkTimer);
+
+    led.classList.remove("on");
+
+    runBtn.textContent =
+        "▶ Executar simulação";
+
+    runBtn.classList.remove("danger");
+    runBtn.classList.add("success");
+
+    status.classList.remove("running");
+
+    status.innerHTML =
+        '<span class="status-dot"></span> Simulação parada';
+
+    writeConsole("> Simulação interrompida.");
+}
+
+
+function highlightCodeLine(number) {
+
+    document.querySelectorAll(".code-line")
+        .forEach(line => {
+
+            line.classList.toggle(
+                "active",
+                Number(line.dataset.line) === number
+            );
+        });
+}
+
+
+/* ==========================================
+   RESET
+========================================== */
+
+resetBtn.addEventListener("click", () => {
+
+    stopSimulation();
+
+    currentStep = 0;
+
+    document.querySelectorAll(".wire")
+        .forEach(wire => {
+            wire.classList.remove("visible");
+        });
+
+    document.querySelectorAll(".hole")
+        .forEach(hole => {
+            hole.classList.remove("target");
+            hole.classList.remove("connected");
+        });
+
+    writeConsole("> Circuito reiniciado.");
+
+    renderStep();
+});
+
+
+/* ==========================================
+   TECLADO
+========================================== */
+
+document.addEventListener("keydown", event => {
+
+    if (event.key === "ArrowRight") {
+        nextBtn.click();
+    }
+
+    if (event.key === "ArrowLeft") {
+        prevBtn.click();
+    }
+
+    if (event.key === " ") {
+
+        event.preventDefault();
+
+        runBtn.click();
+    }
+});
+
+
+/* ==========================================
+   BOTÃO EXECUTAR
+========================================== */
+
+runBtn.addEventListener(
+    "click",
+    runSimulation
+);
+
+
+/* ==========================================
+   PRIMEIRA RENDERIZAÇÃO
+========================================== */
+
+renderStep();
+
+
+/* ==========================================
+   ANIMAÇÃO INICIAL
+========================================== */
+
+setTimeout(() => {
+
+    document
+        .getElementById("marker1")
+        .style.display = "grid";
+
+}, 300);
+
+</script>
+
+</body>
+</html>
