@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Didático ESP32 - Passo a Passo & Interativo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: #1e293b;
+      --card-bg: #334155;
+      --accent-teal: #06b6d4;
+      --accent-green: #10b981;
+      --highlight-yellow: rgba(250, 204, 21, 0.3);
+      --highlight-border: #facc15;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Cores de Sintaxe C++ / Arduino */
+    .kwd { color: #38bdf8; font-weight: 600; } /* Keywords */
+    .str { color: #f87171; } /* Strings */
+    .num { color: #fbbf24; } /* Numbers */
+    .cmt { color: #4ade80; font-style: italic; } /* Comments */
+    .fn  { color: #c084fc; font-weight: 500; } /* Functions */
+    .type { color: #2dd4bf; } /* Types */
+
+    /* Highlight da Linha em Execução */
+    .code-line {
+      display: flex;
+      padding: 1px 8px;
+      white-space: pre;
+      position: relative;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+      border-left: 4px solid transparent;
+    }
+
+    .code-line.active-step {
+      background-color: var(--highlight-yellow);
+      border-left-color: var(--highlight-border);
+    }
+
+    .code-line.active-step .line-text {
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: 0 0 4px rgba(250, 204, 21, 0.4);
+    }
+
+    .line-number {
+      color: #64748b;
+      width: 28px;
+      text-align: right;
+      margin-right: 12px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .line-text {
+      color: #e2e8f0;
+      font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    /* Brilho do LED Hardware */
+    .led-builtin {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #1e293b;
+      border: 2px solid #475569;
+      transition: all 0.25s ease-in-out;
+      box-shadow: inset 0 0 6px rgba(0,0,0,0.8);
+    }
+
+    .led-builtin.active {
+      background: #10b981;
+      border-color: #6ee7b7;
+      box-shadow: 0 0 15px #10b981, 0 0 30px #10b981, inset 0 0 4px #fff;
+    }
+
+    .phone-screen {
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.9);
+    }
+
+    .glow-pulse {
+      animation: pulseGlow 2s infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 8px rgba(6, 182, 212, 0.4); }
+      50% { box-shadow: 0 0 18px rgba(6, 182, 212, 0.8); }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center p-3 md:p-5 font-sans">
+
+  <!-- Cabeçalho Principal -->
+  <header class="w-full max-w-[1600px] mb-3 flex flex-col md:flex-row justify-between items-center border-b border-slate-800 pb-3 gap-3">
+    <div>
+      <h1 class="text-xl md:text-2xl font-extrabold text-cyan-400 flex items-center gap-2 tracking-tight">
+        <i class="fa-solid fa-microchip text-emerald-400"></i> Simulador Interativo ESP32 Web Server
+      </h1>
+      <p class="text-xs text-slate-400 mt-0.5">
+        Acompanhe a execução linha por linha em C++, alterando estados do hardware, rotas Wi-Fi (/ligar e /desligar) e interface Web!
+      </p>
+    </div>
+
+    <!-- Barra de Controles de Execução -->
+    <div class="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 shadow-lg">
+      <button id="btnPrev" onclick="stepBackward()" title="Passo Anterior" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+        <i class="fa-solid fa-backward-step"></i> Voltar
+      </button>
+
+      <button id="btnPlayPause" onclick="togglePlayPause()" class="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-1.5 active:scale-95">
+        <i id="playIcon" class="fa-solid fa-play"></i> <span id="playText">Executar</span>
+      </button>
+
+      <button id="btnStep" onclick="stepForward()" title="Próximo Passo (Avançar 1 Linha)" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-1.5 active:scale-95">
+        <i class="fa-solid fa-forward-step"></i> Próximo Passo
+      </button>
+
+      <button onclick="resetESP32()" title="Reiniciar ESP32" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1 active:scale-95">
+        <i class="fa-solid fa-rotate-left"></i> Reset (EN)
+      </button>
+
+      <div class="h-5 w-[1px] bg-slate-800 mx-1"></div>
+
+      <!-- Seletor de Velocidade -->
+      <div class="flex items-center gap-1.5 px-2">
+        <i class="fa-solid fa-gauge-high text-xs text-slate-400"></i>
+        <span class="text-[11px] font-mono text-slate-400">Velocidade:</span>
+        <select id="speedSelect" onchange="changeSpeed(this.value)" class="bg-slate-800 text-cyan-300 text-xs font-mono rounded px-2 py-1 border border-slate-700 focus:outline-none">
+          <option value="1200">0.8x (Lento)</option>
+          <option value="700" selected>1.0x (Normal)</option>
+          <option value="350">2.0x (Rápido)</option>
+          <option value="150">4.0x (Ultra)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Layout Principal em Grid -->
+  <main class="w-full max-w-[1600px] grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+    
+    <!-- PAINEL ESQUERDO: Código C++ (6 Colunas) -->
+    <section class="lg:col-span-6 bg-slate-900 rounded-xl border border-slate-800 flex flex-col h-[740px] shadow-2xl overflow-hidden">
+      <!-- Topo do Editor -->
+      <div class="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex justify-between items-center">
+        <span class="text-xs font-semibold text-slate-300 flex items-center gap-2 font-mono">
+          <i class="fa-solid fa-code text-cyan-400"></i> main.cpp (Código C++ ESP32)
+        </span>
+        <div class="flex items-center gap-2">
+          <span id="pendingReqBadge" class="hidden text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono animate-pulse">
+            ⚡ Requisição HTTP Pendente!
+          </span>
+          <span id="executionStatus" class="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/80 font-mono">
+            Aguardando
+          </span>
+        </div>
+      </div>
+
+      <!-- Editor de Código -->
+      <div id="codeEditor" class="flex-1 overflow-y-auto overflow-x-auto py-2 bg-slate-900">
+        <!-- Linhas injetadas dinamicamente -->
+      </div>
+
+      <!-- Painel Inferior de Explicação Pedagógica do Passo Atual -->
+      <div class="bg-slate-950 border-t border-slate-800 p-3 flex flex-col gap-1 min-h-[95px]">
+        <div class="flex justify-between items-center">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+            <i class="fa-solid fa-graduation-cap"></i> O que o ESP32 está fazendo nesta linha?
+          </span>
+          <span id="stepCounter" class="text-[10px] font-mono text-slate-500">Passo: 0 / 0</span>
+        </div>
+        <p id="stepExplanation" class="text-xs text-slate-300 leading-relaxed font-sans">
+          Inicie a execução automática ou clique em <b>"Próximo Passo"</b> para começar a debugar o código C++.
+        </p>
+      </div>
+    </section>
+
+    <!-- PAINEL CENTRAL: Hardware ESP32 + Monitor Serial (3 Colunas) -->
+    <section class="lg:col-span-3 flex flex-col gap-4 h-[740px]">
+      
+      <!-- Placa Física do ESP32 -->
+      <div class="bg-slate-900 rounded-xl border border-slate-800 p-3.5 flex flex-col items-center shadow-2xl relative">
+        <h2 class="text-[11px] font-bold text-slate-400 mb-2 tracking-wider uppercase flex items-center gap-1.5">
+          <i class="fa-solid fa-microchip text-emerald-400"></i> Placa ESP-WROOM-32
+        </h2>
+        
+        <div class="w-48 h-72 bg-emerald-950 rounded-2xl border-2 border-emerald-900 shadow-2xl relative flex flex-col items-center justify-between p-3 my-auto">
+          <!-- Conector USB -->
+          <div class="w-12 h-3.5 bg-slate-400 rounded-b-md border border-slate-600 -mt-3.5 shadow-inner"></div>
+
+          <!-- Pinos Laterais -->
+          <div class="absolute left-1 top-6 bottom-6 flex flex-col justify-between">
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+          </div>
+          <div class="absolute right-1 top-6 bottom-6 flex flex-col justify-between">
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+            <div class="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+          </div>
+
+          <!-- Shield Metálico do Chip ESP32 -->
+          <div class="w-32 h-28 bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 rounded border border-slate-600 flex flex-col items-center justify-center p-1 text-center shadow-lg my-1">
+            <span class="text-[10px] font-black text-slate-900 tracking-tight leading-none">ESP-WROOM-32</span>
+            <span class="text-[8px] text-slate-800 font-bold mt-1 font-mono">Espressif Systems</span>
+            <div class="w-10 h-[1px] bg-slate-500 my-1"></div>
+            <span class="text-[7px] text-slate-800 font-mono">Wi-Fi & BT 4.2</span>
+          </div>
+
+          <!-- Status do LED Embutido GPIO2 -->
+          <div class="flex flex-col items-center gap-1 my-1 bg-emerald-900/40 p-2 rounded-xl border border-emerald-800/60 w-full">
+            <div class="flex items-center justify-between w-full px-2">
+              <span class="text-[9px] font-mono text-emerald-300 font-semibold">GPIO 2 (LED)</span>
+              <span id="gpioStateLabel" class="text-[9px] font-mono text-slate-400">LOW (0V)</span>
+            </div>
+            <div id="physicalLed" class="led-builtin"></div>
+          </div>
+
+          <!-- Botões de Reset EN e Boot -->
+          <div class="w-full flex justify-between px-2">
+            <button onclick="resetESP32()" class="text-[9px] font-mono bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded border border-slate-600 active:bg-slate-900">
+              RESET (EN)
+            </button>
+            <button class="text-[9px] font-mono bg-slate-800 text-slate-600 px-2 py-0.5 rounded border border-slate-700 cursor-not-allowed">
+              BOOT
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monitor Serial -->
+      <div class="bg-slate-900 rounded-xl border border-slate-800 p-3 flex flex-col flex-1 shadow-2xl overflow-hidden">
+        <div class="flex justify-between items-center mb-2 pb-1 border-b border-slate-800">
+          <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5 font-mono">
+            <i class="fa-solid fa-terminal text-emerald-400"></i> Monitor Serial
+          </span>
+          <div class="flex items-center gap-2">
+            <span class="text-[9px] font-mono text-slate-500">115200 baud</span>
+            <button onclick="clearSerial()" class="text-[10px] text-slate-400 hover:text-white underline">
+              Limpar
+            </button>
+          </div>
+        </div>
+        <div id="serialOutput" class="flex-1 bg-black/90 rounded-lg p-2.5 text-emerald-400 font-mono text-[10px] leading-relaxed overflow-y-auto border border-slate-800">
+          <!-- Logs seriais -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- PAINEL DIREITO: Smartphone / Cliente Web (3 Colunas) -->
+    <section class="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-3.5 flex flex-col items-center h-[740px] shadow-2xl">
+      <h2 class="text-[11px] font-bold text-slate-400 mb-2 tracking-wider uppercase flex items-center gap-1.5">
+        <i class="fa-solid fa-mobile-screen-button text-cyan-400"></i> Interface Web do Usuário
+      </h2>
+
+      <!-- Smartphone Mockup -->
+      <div class="w-[265px] h-[650px] bg-black rounded-[38px] border-4 border-slate-700 p-3 flex flex-col shadow-2xl relative overflow-hidden my-auto border-t-[8px]">
+        
+        <!-- Notch / Câmera -->
+        <div class="w-24 h-4 bg-slate-800 rounded-b-xl mx-auto mb-2 flex justify-center items-center">
+          <div class="w-3 h-3 bg-black rounded-full border border-slate-700"></div>
+        </div>
+
+        <!-- Barra de URL -->
+        <div class="bg-slate-900 rounded-xl p-1.5 mb-2.5 flex items-center gap-1.5 border border-slate-800">
+          <i class="fa-solid fa-globe text-[10px] text-cyan-400 ml-1"></i>
+          <input id="browserUrl" type="text" class="bg-transparent text-[10px] text-slate-300 w-full focus:outline-none font-mono" value="http://192.168.1.25/" readonly />
+        </div>
+
+        <!-- Tela Principal do Smartphone -->
+        <div id="webScreen" class="phone-screen flex-1 bg-slate-950 rounded-2xl p-4 flex flex-col items-center justify-center text-center border border-slate-800 overflow-y-auto">
+          <!-- Conteúdo dinâmico da página servida -->
+        </div>
+
+        <!-- Barra Inferior de Navegação Mobile -->
+        <div class="w-20 h-1 bg-slate-600 rounded-full mx-auto mt-2"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Definição Completa das Linhas de Código C++ com Explicação Pedagógica
+    const codeLines = [
+      { num: 1,  text: `<span class="cmt">// 1. Inclusão das Bibliotecas Oficiais do ESP32</span>`, exp: "Início do programa. Importação das bibliotecas essenciais para o ESP32." },
+      { num: 2,  text: `<span class="kwd">#include</span> <span class="str">&lt;WiFi.h&gt;</span>`, exp: "Carrega a biblioteca de controle do hardware de Wi-Fi embutido no ESP32." },
+      { num: 3,  text: `<span class="kwd">#include</span> <span class="str">&lt;WebServer.h&gt;</span>`, exp: "Carrega a biblioteca HTTP WebServer para criar um servidor web nativo." },
+      { num: 4,  text: ``, exp: "Linha em branco para organização do código." },
+      { num: 5,  text: `<span class="cmt">// 2. Definição de Variáveis e Credenciais da Rede</span>`, exp: "Declaração de constantes para conexão de rede e pino do LED." },
+      { num: 6,  text: `<span class="kwd">const char</span>* ssid = <span class="str">"MINHA_REDE_2.4G"</span>;`, exp: "Define o nome da rede Wi-Fi (SSID) à qual o ESP32 se conectará." },
+      { num: 7,  text: `<span class="kwd">const char</span>* pass = <span class="str">"SENHA123"</span>;`, exp: "Define a senha de acesso da rede Wi-Fi." },
+      { num: 8,  text: `<span class="kwd">const int</span> pinoLED = <span class="num">2</span>;`, exp: "Define o pino do LED físico onboard do ESP32 (GPIO 2)." },
+      { num: 9,  text: `<span class="type">bool</span> estadoLED = <span class="kwd">LOW</span>;`, exp: "Cria a variável 'estadoLED' inicializada com valor LOW (desligado)." },
+      { num: 10, text: ``, exp: "Linha em branco." },
+      { num: 11, text: `<span class="type">WebServer</span> <span class="fn">server</span>(<span class="num">80</span>);`, exp: "Instancia o objeto do servidor web configurado para escutar na porta HTTP 80." },
+      { num: 12, text: ``, exp: "Linha em branco." },
+      { num: 13, text: `<span class="cmt">// 3. Função para Servir a Página Web HTML ao Cliente</span>`, exp: "Declaração da função 'tratarPagina' que monta e envia o HTML ao cliente." },
+      { num: 14, text: `<span class="type">void</span> <span class="fn">tratarPagina</span>() {`, exp: "O ESP32 começa a processar a requisição da página principal '/'" },
+      { num: 15, text: `  <span class="type">String</span> html = <span class="str">"&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;"</span>;`, exp: "Inicia a montagem da String HTML com o cabeçalho do documento." },
+      { num: 16, text: `  html += <span class="str">"&lt;meta name='viewport' content='width=device-width, initial-scale=1'&gt;"</span>;`, exp: "Adiciona a tag de viewport para adaptar a página ao smartphone." },
+      { num: 17, text: `  html += <span class="str">"&lt;style&gt;body{font-family:sans-serif;text-align:center;background:#0f172a;color:#fff;padding:20px;}"</span>;`, exp: "Adiciona os estilos CSS embutidos para cor de fundo e fonte." },
+      { num: 18, text: `  html += <span class="str">".btn{padding:10px 18px;font-size:14px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;margin:5px;}"</span>;`, exp: "Adiciona estilização CSS base para os botões." },
+      { num: 19, text: `  html += <span class="str">".on{background:#10b981;color:#fff;} .off{background:#ef4444;color:#fff;}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;"</span>;`, exp: "Define as classes CSS '.on' (verde) e '.off' (vermelho)." },
+      { num: 20, text: `  html += <span class="str">"&lt;h3 style='color:#06b6d4'&gt;Painel do ESP32&lt;/h3&gt;"</span>;`, exp: "Adiciona o título da página web." },
+      { num: 21, text: `  html += <span class="str">"&lt;p&gt;Status do LED: &lt;b&gt;"</span> + <span class="type">String</span>(estadoLED ? <span class="str">"LIGADO"</span> : <span class="str">"DESLIGADO"</span>) + <span class="str">"&lt;/b&gt;&lt;/p&gt;"</span>;`, exp: "Concatena dinamicamente o status atual do LED (LIGADO ou DESLIGADO)." },
+      { num: 22, text: `  html += <span class="str">"&lt;a href='/ligar'&gt;&lt;button class='btn on'&gt;LIGAR&lt;/button&gt;&lt;/a&gt;"</span>;`, exp: "Cria o botão 'LIGAR' que faz requisição à rota HTTP GET /ligar." },
+      { num: 23, text: `  html += <span class="str">"&lt;a href='/desligar'&gt;&lt;button class='btn off'&gt;DESLIGAR&lt;/button&gt;&lt;/a&gt;"</span>;`, exp: "Cria o botão separado 'DESLIGAR' que faz requisição à rota HTTP GET /desligar." },
+      { num: 24, text: `  html += <span class="str">"&lt;/body&gt;&lt;/html&gt;"</span>;`, exp: "Fecha as tags HTML da página." },
+      { num: 25, text: `  server.<span class="fn">send</span>(<span class="num">200</span>, <span class="str">"text/html"</span>, html);`, exp: "O ESP32 envia a resposta HTTP 200 (OK) contendo os dois botões no HTML ao Smartphone!" },
+      { num: 26, text: `}`, exp: "Fim da execução da função tratarPagina()." },
+      { num: 27, text: ``, exp: "Linha em branco." },
+      { num: 28, text: `<span class="cmt">// 4. Rota '/ligar' para Acender o LED</span>`, exp: "Declaração da função para LIGAR o LED." },
+      { num: 29, text: `<span class="type">void</span> <span class="fn">tratarLigar</span>() {`, exp: "Início do tratamento da requisição HTTP GET /ligar." },
+      { num: 30, text: `  estadoLED = <span class="kwd">HIGH</span>;`, exp: "Atualiza a variável estadoLED para HIGH (1 / verdadeiro)." },
+      { num: 31, text: `  <span class="fn">digitalWrite</span>(pinoLED, <span class="kwd">HIGH</span>); <span class="cmt">// Aplica 3.3V</span>`, exp: "Aplica 3.3V no pino digital GPIO 2, ACENDENDO o LED na placa física!" },
+      { num: 32, text: `  server.<span class="fn">sendHeader</span>(<span class="str">"Location"</span>, <span class="str">"/"</span>);`, exp: "Define o cabeçalho HTTP de redirecionamento para a página principal '/'" },
+      { num: 33, text: `  server.<span class="fn">send</span>(<span class="num">303</span>);`, exp: "Envia a resposta HTTP 303 Redirect para atualizar o status na tela." },
+      { num: 34, text: `}`, exp: "Fim da função tratarLigar()." },
+      { num: 35, text: ``, exp: "Linha em branco." },
+      { num: 36, text: `<span class="cmt">// 5. Rota '/desligar' para Apagar o LED</span>`, exp: "Declaração da função para DESLIGAR o LED." },
+      { num: 37, text: `<span class="type">void</span> <span class="fn">tratarDesligar</span>() {`, exp: "Início do tratamento da requisição HTTP GET /desligar." },
+      { num: 38, text: `  estadoLED = <span class="kwd">LOW</span>;`, exp: "Atualiza a variável estadoLED para LOW (0 / falso)." },
+      { num: 39, text: `  <span class="fn">digitalWrite</span>(pinoLED, <span class="kwd">LOW</span>); <span class="cmt">// Aplica 0V</span>`, exp: "Remove a voltagem do pino GPIO 2 (0V), APAGANDO o LED na placa física!" },
+      { num: 40, text: `  server.<span class="fn">sendHeader</span>(<span class="str">"Location"</span>, <span class="str">"/"</span>);`, exp: "Define o cabeçalho HTTP de redirecionamento para a raiz '/'" },
+      { num: 41, text: `  server.<span class="fn">send</span>(<span class="num">303</span>);`, exp: "Envia a resposta HTTP 303 Redirect para atualizar o navegador." },
+      { num: 42, text: `}`, exp: "Fim da função tratarDesligar()." },
+      { num: 43, text: ``, exp: "Linha em branco." },
+      { num: 44, text: `<span class="cmt">// 6. Função de Configuração do Hardware (setup)</span>`, exp: "A função setup() roda apenas UMA vez quando o ESP32 é energizado ou resetado." },
+      { num: 45, text: `<span class="type">void</span> <span class="fn">setup</span>() {`, exp: "Início do bloco de inicialização do sistema." },
+      { num: 46, text: `  Serial.<span class="fn">begin</span>(<span class="num">115200</span>);`, exp: "Inicializa a comunicação Serial UART com taxa de transmissão de 115200 baud." },
+      { num: 47, text: `  <span class="fn">pinMode</span>(pinoLED, <span class="kwd">OUTPUT</span>);`, exp: "Configura a porta digital GPIO 2 como Saída de Sinal (OUTPUT)." },
+      { num: 48, text: `  WiFi.<span class="fn">mode</span>(WIFI_STA);`, exp: "Configura o módulo Wi-Fi do ESP32 para o modo Estação (Cliente)." },
+      { num: 49, text: `  WiFi.<span class="fn">begin</span>(ssid, pass);`, exp: "Inicia a autenticação na rede Wi-Fi configurada." },
+      { num: 50, text: `  <span class="kwd">while</span>(WiFi.<span class="fn">status</span>() != WL_CONNECTED) {`, exp: "Estrutura de repetição: aguarda a conexão com o roteador ser estabelecida." },
+      { num: 51, text: `    <span class="fn">delay</span>(<span class="num">500</span>); Serial.<span class="fn">print</span>(<span class="str">"."</span>);`, exp: "Imprime '.' no Monitor Serial a cada 500ms aguardando resposta." },
+      { num: 52, text: `  }`, exp: "Wi-Fi conectado com sucesso! O loop de checagem é finalizado." },
+      { num: 53, text: `  Serial.<span class="fn">println</span>(<span class="str">"\\nWi-Fi Conectado!"</span>);`, exp: "Imprime mensagem de confirmação no Monitor Serial." },
+      { num: 54, text: `  server.<span class="fn">on</span>(<span class="str">"/"</span>, tratarPagina);`, exp: "Registra a rota HTTP '/': associa a raiz da página web à função 'tratarPagina'." },
+      { num: 55, text: `  server.<span class="fn">on</span>(<span class="str">"/ligar"</span>, tratarLigar);`, exp: "Registra a rota HTTP '/ligar': associa a ação de LIGAR à função 'tratarLigar'." },
+      { num: 56, text: `  server.<span class="fn">on</span>(<span class="str">"/desligar"</span>, tratarDesligar);`, exp: "Registra a rota HTTP '/desligar': associa a ação de DESLIGAR à função 'tratarDesligar'." },
+      { num: 57, text: `  server.<span class="fn">begin</span>();`, exp: "Inicia oficialmente o Servidor Web HTTP na porta 80." },
+      { num: 58, text: `  Serial.<span class="fn">println</span>(<span class="str">"Servidor HTTP pronto."</span>);`, exp: "Imprime aviso de que o servidor está pronto para aceitar requisições." },
+      { num: 59, text: `}`, exp: "Fim da execução da função setup(). O fluxo passa para o loop() permanente." },
+      { num: 60, text: ``, exp: "Linha em branco." },
+      { num: 61, text: `<span class="cmt">// 7. Loop Infinito de Execução do ESP32</span>`, exp: "A função loop() é executada continuadamente enquanto o ESP32 estiver ligado." },
+      { num: 62, text: `<span class="type">void</span> <span class="fn">loop</span>() {`, exp: "Entrando em um novo ciclo de execução no loop()." },
+      { num: 63, text: `  server.<span class="fn">handleClient</span>(); <span class="cmt">// Processa requisições</span>`, exp: "O ESP32 verifica e atende chamadas HTTP (como clicar em LIGAR ou DESLIGAR)." },
+      { num: 64, text: `}`, exp: "Fim da iteração. Reinicia o ciclo loop() na linha 62." }
+    ];
+
+    // Estados Globais do Simulador
+    let currentStepIndex = 0;
+    let isPlaying = false;
+    let playTimer = null;
+    let autoSpeed = 700;
+
+    // Estados do Hardware/Rede
+    let ledState = false;
+    let isWifiConnected = false;
+    let pendingUserAction = null; // 'LIGAR', 'DESLIGAR' ou 'LOAD_PAGE'
+    let htmlBuffer = "";
+
+    // Elementos DOM
+    const codeEditor = document.getElementById('codeEditor');
+    const serialOutput = document.getElementById('serialOutput');
+    const physicalLed = document.getElementById('physicalLed');
+    const gpioStateLabel = document.getElementById('gpioStateLabel');
+    const webScreen = document.getElementById('webScreen');
+    const browserUrl = document.getElementById('browserUrl');
+    const executionStatus = document.getElementById('executionStatus');
+    const stepExplanation = document.getElementById('stepExplanation');
+    const stepCounter = document.getElementById('stepCounter');
+    const pendingReqBadge = document.getElementById('pendingReqBadge');
+
+    // Sequência Estática de Inicialização Boot (Linhas do Código)
+    const bootSequence = [
+      45, 46, 47, 48, 49, 
+      50, 51, 50, 51, 50, 51, 50, 52, 53, 
+      54, 55, 56, 57, 58, 59, 62, 63, 64
+    ];
+
+    // Array Dinâmico da Sequência Completa de Execução Ativa
+    let executionQueue = [...bootSequence];
+
+    // Renderização Inicial do Editor de Código C++
+    function renderCodeTable() {
+      codeEditor.innerHTML = codeLines.map(line => `
+        <div class="code-line" id="line-${line.num}">
+          <span class="line-number">${line.num}</span>
+          <span class="line-text">${line.text}</span>
+        </div>
+      `).join('');
+    }
+
+    // Atualiza o Highlight e Scroll no Editor
+    function highlightLine(lineNum) {
+      document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active-step'));
+      if (lineNum) {
+        const activeEl = document.getElementById(`line-${lineNum}`);
+        if (activeEl) {
+          activeEl.classList.add('active-step');
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }
+
+    // Execução do Passo Atual (Core da Simulação)
+    function executeCurrentStep() {
+      if (currentStepIndex >= executionQueue.length) {
+        if (pendingUserAction) {
+          insertHandlerSequence(pendingUserAction);
+        } else {
+          executionQueue.push(62, 63, 64);
+        }
+      }
+
+      const lineNum = executionQueue[currentStepIndex];
+      const lineObj = codeLines.find(l => l.num === lineNum);
+
+      highlightLine(lineNum);
+      
+      if (lineObj) {
+        stepExplanation.innerHTML = lineObj.exp;
+      }
+      stepCounter.innerText = `Passo: ${currentStepIndex + 1} / ${executionQueue.length}`;
+
+      // AVALIAÇÃO DE IMPACTO POR LINHA DE CÓDIGO
+      evaluateLineImpact(lineNum);
+
+      // Atualiza botões
+      document.getElementById('btnPrev').disabled = (currentStepIndex === 0);
+    }
+
+    // Insere sequências HTTP na fila de execução do ESP32
+    function insertHandlerSequence(action) {
+      if (action === 'LIGAR') {
+        executionQueue.push(
+          29, 30, 31, 32, 33, 34, // tratarLigar()
+          14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, // tratarPagina()
+          62, 63, 64 // loop continuation
+        );
+      } else if (action === 'DESLIGAR') {
+        executionQueue.push(
+          37, 38, 39, 40, 41, 42, // tratarDesligar()
+          14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, // tratarPagina()
+          62, 63, 64 // loop continuation
+        );
+      } else if (action === 'LOAD_PAGE') {
+        executionQueue.push(
+          14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+          62, 63, 64
+        );
+      }
+    }
+
+    // Efeitos Visuais Sincronizados por Linha
+    function evaluateLineImpact(lineNum) {
+      switch(lineNum) {
+        case 45: // void setup()
+          setStatus("Executando setup()", "bg-amber-950", "text-amber-300", "border-amber-800");
+          logSerial("rst:0x1 (POWERON_RESET), boot:0x13 (SPI_FAST_FLASH_BOOT)");
+          break;
+
+        case 46: // Serial.begin
+          logSerial("Iniciando comunicação Serial UART a 115200 baud...");
+          break;
+
+        case 47: // pinMode
+          gpioStateLabel.innerText = "OUTPUT (0V)";
+          break;
+
+        case 49: // WiFi.begin
+          logSerial("Conectando ao SSID: MINHA_REDE_2.4G ");
+          browserUrl.value = "Conectando Wi-Fi...";
+          break;
+
+        case 51: // delay / print .
+          logSerial(".", true);
+          break;
+
+        case 53: // Serial.println Wi-Fi Conectado
+          isWifiConnected = true;
+          logSerial("\nWi-Fi Conectado com sucesso!");
+          logSerial("Endereço IP obtido via DHCP: http://192.168.1.25/");
+          browserUrl.value = "http://192.168.1.25/";
+          
+          webScreen.innerHTML = `
+            <div class="flex flex-col items-center gap-2">
+              <div class="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+              <p class="text-[11px] text-slate-400 font-mono">Solicitando HTTP GET / ...</p>
+            </div>
+          `;
+          break;
+
+        case 57: // server.begin()
+          logSerial("Servidor HTTP iniciado na porta 80.");
+          // Ao iniciar o servidor no boot, enfileira a carga da página inicial
+          pendingUserAction = 'LOAD_PAGE';
+          pendingReqBadge.classList.remove('hidden');
+          break;
+
+        case 63: // server.handleClient()
+          setStatus("Em Loop (handleClient)", "bg-emerald-950", "text-emerald-300", "border-emerald-800");
+          
+          if (pendingUserAction) {
+            const action = pendingUserAction;
+            pendingUserAction = null;
+            pendingReqBadge.classList.add('hidden');
+            insertHandlerSequence(action);
+          }
+          break;
+
+        // --- TRATAR PAGINA (Construção do HTML com Botões Separados) ---
+        case 14: // void tratarPagina()
+          setStatus("Executando tratarPagina()", "bg-cyan-950", "text-cyan-300", "border-cyan-800");
+          logSerial("[HTTP GET] / - Gerando resposta HTML...");
+          htmlBuffer = "";
+          break;
+
+        case 15: // String html = ...
+          htmlBuffer = `<div class="w-full flex flex-col items-center justify-center font-sans p-1">`;
+          renderPartialWebScreen("Montando <head>...");
+          break;
+
+        case 20: // h3 Painel ESP32
+          htmlBuffer += `<h3 class="text-cyan-400 font-bold text-xs mb-3 uppercase tracking-wider">Painel do ESP32</h3>`;
+          renderPartialWebScreen("Injetando Título...");
+          break;
+
+        case 21: // Status do LED
+          htmlBuffer += `
+            <div class="bg-slate-900/90 rounded-xl p-2.5 w-full border border-slate-800 mb-3 shadow-inner">
+              <span class="text-[10px] text-slate-400 block mb-0.5">Status do LED (GPIO 2)</span>
+              <span class="text-xs font-bold ${ledState ? 'text-emerald-400' : 'text-red-400'} tracking-wider">
+                ${ledState ? "● LIGADO" : "○ DESLIGADO"}
+              </span>
+            </div>
+          `;
+          renderPartialWebScreen("Injetando Status...");
+          break;
+
+        case 22: // Botão LIGAR
+          // Injeta a estrutura parcial dos botões
+          break;
+
+        case 23: // Botão DESLIGAR
+          htmlBuffer += `
+            <div class="flex gap-2 w-full mb-1">
+              <button onclick="triggerUserAction('LIGAR')" class="flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-all transform active:scale-95 shadow-md bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1">
+                <i class="fa-solid fa-power-off"></i> LIGAR
+              </button>
+              <button onclick="triggerUserAction('DESLIGAR')" class="flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-all transform active:scale-95 shadow-md bg-red-600 hover:bg-red-500 text-white flex items-center justify-center gap-1">
+                <i class="fa-solid fa-power-off"></i> DESLIGAR
+              </button>
+            </div>
+          `;
+          renderPartialWebScreen("Gerando Botões Web...");
+          break;
+
+        case 24: // Fechamento do HTML
+          htmlBuffer += `</div>`;
+          break;
+
+        case 25: // server.send(200)
+          logSerial("HTTP 200 OK enviado ao navegador!");
+          webScreen.innerHTML = htmlBuffer;
+          browserUrl.value = "http://192.168.1.25/";
+          break;
+
+        // --- TRATAR LIGAR ---
+        case 29: // void tratarLigar()
+          setStatus("Executando tratarLigar()", "bg-emerald-950", "text-emerald-300", "border-emerald-800");
+          logSerial("[HTTP GET] /ligar - Recebido!");
+          browserUrl.value = "http://192.168.1.25/ligar";
+          break;
+
+        case 30: // estadoLED = HIGH
+          ledState = true;
+          logSerial("Variável 'estadoLED' = HIGH (1)");
+          break;
+
+        case 31: // digitalWrite HIGH
+          physicalLed.classList.add('active');
+          gpioStateLabel.innerText = "HIGH (3.3V)";
+          gpioStateLabel.className = "text-[9px] font-mono text-emerald-400 font-bold";
+          logSerial("digitalWrite(2, HIGH) -> Pino GPIO2 energizado em 3.3V!");
+          break;
+
+        case 33: // server.send(303)
+          logSerial("HTTP 303 See Other -> Redirecionando para '/'");
+          break;
+
+        // --- TRATAR DESLIGAR ---
+        case 37: // void tratarDesligar()
+          setStatus("Executando tratarDesligar()", "bg-red-950", "text-red-300", "border-red-800");
+          logSerial("[HTTP GET] /desligar - Recebido!");
+          browserUrl.value = "http://192.168.1.25/desligar";
+          break;
+
+        case 38: // estadoLED = LOW
+          ledState = false;
+          logSerial("Variável 'estadoLED' = LOW (0)");
+          break;
+
+        case 39: // digitalWrite LOW
+          physicalLed.classList.remove('active');
+          gpioStateLabel.innerText = "LOW (0V)";
+          gpioStateLabel.className = "text-[9px] font-mono text-slate-400";
+          logSerial("digitalWrite(2, LOW) -> Pino GPIO2 em 0V (GND)!");
+          break;
+
+        case 41: // server.send(303)
+          logSerial("HTTP 303 See Other -> Redirecionando para '/'");
+          break;
+      }
+    }
+
+    // Renderiza prévia parcial na tela do smartphone durante montagem
+    function renderPartialWebScreen(statusMsg) {
+      webScreen.innerHTML = `
+        <div class="w-full flex flex-col items-center">
+          ${htmlBuffer}
+          <div class="mt-3 flex items-center gap-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/80 px-2 py-1 rounded-md border border-cyan-800/50 animate-pulse">
+            <i class="fa-solid fa-spinner animate-spin"></i> ${statusMsg}
+          </div>
+        </div>
+      `;
+    }
+
+    // Ação acionada quando o usuário clica nos botões LIGAR ou DESLIGAR na tela do celular
+    function triggerUserAction(action) {
+      if (!isWifiConnected) {
+        alert("Aguarde o ESP32 conectar ao Wi-Fi e iniciar o Servidor Web!");
+        return;
+      }
+      pendingUserAction = action;
+      pendingReqBadge.innerText = `⚡ Requisição /${action.toLowerCase()} Pendente!`;
+      pendingReqBadge.classList.remove('hidden');
+      logSerial(`\n[Cliente Smartphone] Clicou no botão ${action}! Requisição HTTP enfileirada.`);
+    }
+
+    // Utilitários do Monitor Serial
+    function logSerial(message, sameLine = false) {
+      if (sameLine) {
+        serialOutput.innerHTML += message;
+      } else {
+        const time = new Date().toLocaleTimeString('pt-BR');
+        serialOutput.innerHTML += `\n[${time}] ${message}`;
+      }
+      serialOutput.scrollTop = serialOutput.scrollHeight;
+    }
+
+    function clearSerial() {
+      serialOutput.innerHTML = '<span class="text-slate-600">// Monitor Serial Limpo</span>\n';
+    }
+
+    // Atualização de Status da Badge
+    function setStatus(text, bgColor, textColor, borderColor) {
+      executionStatus.innerText = text;
+      executionStatus.className = `text-[10px] px-2.5 py-0.5 rounded-full ${bgColor} ${textColor} border ${borderColor} font-mono font-semibold`;
+    }
+
+    // Controle de Avanço / Recuo Manual e Automático
+    function stepForward() {
+      if (currentStepIndex < executionQueue.length - 1) {
+        currentStepIndex++;
+        executeCurrentStep();
+      } else {
+        if (pendingUserAction) {
+          const action = pendingUserAction;
+          pendingUserAction = null;
+          pendingReqBadge.classList.add('hidden');
+          insertHandlerSequence(action);
+          currentStepIndex++;
+          executeCurrentStep();
+        } else {
+          // Loop permanente no loop()
+          executionQueue.push(62, 63, 64);
+          currentStepIndex++;
+          executeCurrentStep();
+        }
+      }
+    }
+
+    function stepBackward() {
+      if (currentStepIndex > 0) {
+        currentStepIndex--;
+        executeCurrentStep();
+      }
+    }
+
+    function togglePlayPause() {
+      isPlaying = !isPlaying;
+      const playIcon = document.getElementById('playIcon');
+      const playText = document.getElementById('playText');
+      const btnPlay = document.getElementById('btnPlayPause');
+
+      if (isPlaying) {
+        playIcon.className = "fa-solid fa-pause";
+        playText.innerText = "Pausar";
+        btnPlay.className = "px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-1.5 active:scale-95";
+        playTimer = setInterval(() => {
+          stepForward();
+        }, autoSpeed);
+      } else {
+        playIcon.className = "fa-solid fa-play";
+        playText.innerText = "Executar";
+        btnPlay.className = "px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-1.5 active:scale-95";
+        clearInterval(playTimer);
+      }
+    }
+
+    function changeSpeed(val) {
+      autoSpeed = parseInt(val);
+      if (isPlaying) {
+        clearInterval(playTimer);
+        playTimer = setInterval(() => {
+          stepForward();
+        }, autoSpeed);
+      }
+    }
+
+    // Reinicia Todo o Simulador ESP32
+    function resetESP32() {
+      if (isPlaying) togglePlayPause();
+
+      currentStepIndex = 0;
+      ledState = false;
+      isWifiConnected = false;
+      pendingUserAction = null;
+      htmlBuffer = "";
+      executionQueue = [...bootSequence];
+
+      // Restaura Estado Visual do Hardware
+      physicalLed.classList.remove('active');
+      gpioStateLabel.innerText = "LOW (0V)";
+      gpioStateLabel.className = "text-[9px] font-mono text-slate-400";
+      pendingReqBadge.classList.add('hidden');
+      browserUrl.value = "http://192.168.1.25/";
+
+      // Restaura Tela do Celular
+      webScreen.innerHTML = `
+        <div class="flex flex-col items-center gap-2 text-slate-500 text-center">
+          <i class="fa-solid fa-wifi text-2xl text-slate-700 animate-pulse"></i>
+          <p class="text-[11px] font-mono">Aguardando ESP32 conectar ao Wi-Fi...</p>
+        </div>
+      `;
+
+      clearSerial();
+      logSerial("ESP32 Resetado via Botão EN (Hardware Reset)...");
+      executeCurrentStep();
+    }
+
+    // Inicialização ao Carregar a Página
+    window.onload = function() {
+      renderCodeTable();
+      executeCurrentStep();
+    };
+  </script>
+</body>
+</html>
